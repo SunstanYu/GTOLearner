@@ -3,8 +3,14 @@ export interface QuestionData {
   id: number;
   mode: string;
   position: string; // 当前玩家位置
+  stage: 'preflop' | 'flop' | 'turn' | 'river'; // 当前阶段
   stacks: number[]; // [UTG, UTG1, CO, BTN, SB, BB] 的筹码量
-  action_history: string[]; // ["A B C", "A B C", ...] 格式
+  action_history: {
+    preflop: string[];
+    flop: string[];
+    turn: string[];
+    river: string[];
+  }; // 按阶段组织的行动历史
   hole_cards: string[]; // 我的手牌
   board: string[]; // 公共牌
   ref_solution: Record<string, number>; // 参考解决方案
