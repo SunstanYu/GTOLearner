@@ -12,72 +12,53 @@ function QuestionContent() {
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [raiseSize, setRaiseSize] = useState<string | null>(null);
   const [actionHistoryScrollTop, setActionHistoryScrollTop] = useState(0);
+  const [judgmentResult, setJudgmentResult] = useState<{
+    isCorrect: boolean;
+    userAction: string;
+    refSolution: Record<string, number>;
+    explanation: string;
+  } | null>(null);
 
   useEffect(() => {
     const modeParam = searchParams.get('mode');
     if (modeParam) {
       setMode(decodeURIComponent(modeParam));
+      // 从后端API获取题目
+      fetchQuestion(decodeURIComponent(modeParam));
     }
-    
-    // 根据模式生成不同的测试题目数据
-    let testQuestion: QuestionData;
-    
-    if (modeParam === '价值练习') {
-      testQuestion = {
-        id: 1,
-        mode: '价值练习',
-        position: 'CO',
-        stage: 'flop',
-        stacks: [100, 95, 100, 110, 50, 25], // [UTG, UTG1, CO, BTN, SB, BB]
-        action_history: {
-          preflop: ['UTG raise 3', 'UTG1 fold', 'CO call'],
-          flop: [],
-          turn: [],
-          river: []
-        },
-        hole_cards: ['AA', 'KK'], // 强牌
-        board: ['Ac', '7h', '2d'], // 公共牌（翻牌）
-        ref_solution: { call: 20, raise: 80 }
-      };
-    } else if (modeParam === 'Bluff练习') {
-      testQuestion = {
-        id: 2,
-        mode: 'Bluff练习',
-        position: 'BTN',
-        stage: 'turn',
-        stacks: [100, 95, 110, 100, 50, 25], // [UTG, UTG1, CO, BTN, SB, BB]
-        action_history: {
-          preflop: ['UTG raise 3', 'UTG1 fold', 'CO call', 'BTN call'],
-          flop: ['UTG bet 5', 'CO call', 'BTN call'],
-          turn: [],
-          river: []
-        },
-        hole_cards: ['72o'], // 弱牌
-        board: ['Ac', '7h', '2d', 'Ks'], // 公共牌（转牌）
-        ref_solution: { fold: 100 }
-      };
-    } else {
-      // 综合练习
-      testQuestion = {
-        id: 3,
-        mode: '综合练习',
-        position: 'BTN',
-        stage: 'flop',
-        stacks: [100, 95, 110, 100, 50, 25], // [UTG, UTG1, CO, BTN, SB, BB]
-        action_history: {
-          preflop: ['UTG raise 3', 'UTG1 fold', 'CO call', 'BTN raise 6', 'SB fold', 'BB fold', 'UTG raise 20', 'CO fold'],
-          flop: [],
-          turn: [],
-          river: []
-        },
-        hole_cards: ['As', 'Kh'], // 中等牌力
-        board: ['Ac', '7h', '2d'], // 公共牌（翻牌）
-        ref_solution: { call: 40, raise: 60 }
-      };
-    }
-    
-    setQuestionData(testQuestion);
   }, [searchParams]);
+
+  // 从后端获取题目
+  const fetchQuestion = async (mode: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/questions?mode=${encodeURIComponent(mode)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setQuestionData(data);
+      } else {
+        console.error('Failed to fetch question:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching question:', error);
+    }
+  };
+
+  // 获取下一题
+  const fetchNextQuestion = async (currentId: number, mode: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/questions/next/${currentId}?mode=${encodeURIComponent(mode)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setQuestionData(data);
+        // 重置状态
+        resetAnswer();
+      } else {
+        console.error('Failed to fetch next question:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching next question:', error);
+    }
+  };
 
   // 解析行动历史
   const parseActionHistory = (actionHistory: { preflop: string[]; flop: string[]; turn: string[]; river: string[] }) => {
@@ -213,6 +194,45 @@ function QuestionContent() {
       ? Math.max(0, actionHistoryScrollTop - scrollAmount)
       : actionHistoryScrollTop + scrollAmount;
     setActionHistoryScrollTop(newScrollTop);
+  };
+
+  // 提交答案到后端判断
+  const submitAnswer = async () => {
+    if (!questionData || !selectedAction) return;
+    
+    let userAction = selectedAction;
+    if (selectedAction === 'raise' && raiseSize) {
+      userAction = `raise ${raiseSize}`;
+    }
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/judge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question_id: questionData.id,
+          user_action: userAction
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setJudgmentResult(result);
+      } else {
+        console.error('Failed to judge answer:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error judging answer:', error);
+    }
+  };
+
+  // 重置状态
+  const resetAnswer = () => {
+    setSelectedAction(null);
+    setRaiseSize(null);
+    setJudgmentResult(null);
   };
 
   return (
@@ -540,9 +560,24 @@ function QuestionContent() {
 
                   {/* Raise尺寸选择 */}
                   {selectedAction === 'raise' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                      <div style={{ color: 'white', fontSize: '14px', marginBottom: '8px' }}>选择尺寸:</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: '12px',
+                      }}
+                    >
+                      <div style={{ color: 'white', fontSize: '14px' }}>选择尺寸:</div>
+                  
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'row',
+                          gap: '8px',
+                          flexWrap: 'wrap', // 宽度不够时自动换行（可去掉）
+                        }}
+                      >
                         <button
                           onClick={() => setRaiseSize('1/3')}
                           style={{
@@ -608,8 +643,9 @@ function QuestionContent() {
                   )}
 
                   {/* 提交按钮 */}
-                  {selectedAction && (selectedAction !== 'raise' || raiseSize) && (
+                  {selectedAction && (selectedAction !== 'raise' || raiseSize) && !judgmentResult && (
                     <button
+                      onClick={submitAnswer}
                       style={{
                         padding: '12px 24px',
                         backgroundColor: '#10b981',
@@ -624,6 +660,81 @@ function QuestionContent() {
                     >
                       提交 {selectedAction} {raiseSize && `(${raiseSize} pot)`}
                     </button>
+                  )}
+
+                  {/* 结果显示 */}
+                  {judgmentResult && (
+                    <div style={{
+                      marginTop: '20px',
+                      padding: '16px',
+                      backgroundColor: judgmentResult.isCorrect ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                      border: `2px solid ${judgmentResult.isCorrect ? '#10b981' : '#ef4444'}`,
+                      borderRadius: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{
+                        fontSize: '18px',
+                        fontWeight: 'bold',
+                        color: judgmentResult.isCorrect ? '#10b981' : '#ef4444',
+                        marginBottom: '8px'
+                      }}>
+                        {judgmentResult.isCorrect ? '✅ 正确！' : '❌ 不正确'}
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        color: 'white',
+                        marginBottom: '12px'
+                      }}>
+                        {judgmentResult.explanation}
+                      </div>
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#d1d5db',
+                        marginBottom: '12px'
+                      }}>
+                        {(() => {
+  const ref = judgmentResult?.refSolution ?? {};   // 没有就用空对象
+  const pairs = Object.entries(ref);
+  return (
+    <span>
+      GTO参考解: {pairs.length
+        ? pairs.map(([action, percentage]) => `${action} ${percentage}%`).join(', ')
+        : '（无参考解）'}
+    </span>
+  );
+})()}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button
+                          onClick={resetAnswer}
+                          style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#6b7280',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '14px'
+                          }}
+                        >
+                          重新选择
+                        </button>
+                        <button
+                          onClick={() => fetchNextQuestion(questionData.id, questionData.mode)}
+                          style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '14px'
+                          }}
+                        >
+                          下一题
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
