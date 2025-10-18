@@ -50,6 +50,9 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+  
+    # 测试 GTO（一次性或交互用）
 
 volumes:
   postgres_data:
+  

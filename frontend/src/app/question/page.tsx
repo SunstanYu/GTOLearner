@@ -12,8 +12,9 @@ function QuestionContent() {
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [raiseSize, setRaiseSize] = useState<string | null>(null);
   const [actionHistoryScrollTop, setActionHistoryScrollTop] = useState(0);
+  const [showExplanation, setShowExplanation] = useState(false);
   const [judgmentResult, setJudgmentResult] = useState<{
-    isCorrect: boolean;
+    isCorrect: number; // 0=不对, 1=半对, 2=全对
     userAction: string;
     refSolution: Record<string, number>;
     explanation: string;
@@ -31,7 +32,9 @@ function QuestionContent() {
   // 从后端获取题目
   const fetchQuestion = async (mode: string) => {
     try {
+      // 发起HTTP GET请求
       const response = await fetch(`http://localhost:8000/api/v1/questions?mode=${encodeURIComponent(mode)}`);
+      // 检查响应状态
       if (response.ok) {
         const data = await response.json();
         setQuestionData(data);
@@ -198,34 +201,65 @@ function QuestionContent() {
 
   // 提交答案到后端判断
   const submitAnswer = async () => {
-    if (!questionData || !selectedAction) return;
+    console.log('=== 开始提交答案 ===');
+    console.log('questionData:', questionData);
+    console.log('selectedAction:', selectedAction);
+    console.log('raiseSize:', raiseSize);
+    
+    if (!questionData || !selectedAction) {
+      console.log('❌ 缺少必要数据，无法提交');
+      return;
+    }
     
     let userAction = selectedAction;
     if (selectedAction === 'raise' && raiseSize) {
-      userAction = `raise ${raiseSize}`;
+      // 将 "raise 1/2" 格式转换为 "raise12" 格式
+      userAction = `raise${raiseSize.replace('/', '')}`;
+      console.log('转换后的userAction:', userAction);
     }
     
+    console.log('最终发送的userAction:', userAction);
+    console.log('题目ID:', questionData.id);
+    console.log('题目ref_solution:', questionData.ref_solution);
+    
     try {
+      const requestData = {
+        question_id: questionData.id,
+        user_action: userAction
+      };
+      
+      console.log('📤 发送到后端的数据:', requestData);
+      
       const response = await fetch('http://localhost:8000/api/v1/judge', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          question_id: questionData.id,
-          user_action: userAction
-        })
+        body: JSON.stringify(requestData)
       });
+      
+      console.log('📡 响应状态:', response.status, response.statusText);
       
       if (response.ok) {
         const result = await response.json();
+        console.log('📥 后端返回的完整数据:', result);
+        console.log('📥 后端返回的isCorrect:', result.isCorrect);
+        console.log('📥 后端返回的refSolution:', result.refSolution);
+        console.log('📥 后端返回的explanation:', result.explanation);
+        
         setJudgmentResult(result);
+        console.log('✅ 设置judgmentResult成功');
+        console.log('🔍 检查isCorrect的值和类型:', result.isCorrect, typeof result.isCorrect);
       } else {
-        console.error('Failed to judge answer:', response.statusText);
+        const errorText = await response.text();
+        console.error('❌ 请求失败:', response.status, response.statusText);
+        console.error('❌ 错误详情:', errorText);
       }
     } catch (error) {
-      console.error('Error judging answer:', error);
+      console.error('❌ 网络错误:', error);
     }
+    
+    console.log('=== 提交答案结束 ===');
   };
 
   // 重置状态
@@ -233,6 +267,7 @@ function QuestionContent() {
     setSelectedAction(null);
     setRaiseSize(null);
     setJudgmentResult(null);
+    setShowExplanation(false);
   };
 
   return (
@@ -667,46 +702,59 @@ function QuestionContent() {
                     <div style={{
                       marginTop: '20px',
                       padding: '16px',
-                      backgroundColor: judgmentResult.isCorrect ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                      border: `2px solid ${judgmentResult.isCorrect ? '#10b981' : '#ef4444'}`,
+                      backgroundColor: judgmentResult.isCorrect === 2 ? 'rgba(16, 185, 129, 0.2)' : 
+                                      judgmentResult.isCorrect === 1 ? 'rgba(251, 191, 36, 0.2)' : 
+                                      'rgba(239, 68, 68, 0.2)',
+                      border: `2px solid ${judgmentResult.isCorrect === 2 ? '#10b981' : 
+                                        judgmentResult.isCorrect === 1 ? '#fbbf24' : 
+                                        '#ef4444'}`,
                       borderRadius: '8px',
                       textAlign: 'center'
                     }}>
+                      {console.log('🎨 渲染结果时isCorrect的值:', judgmentResult.isCorrect, typeof judgmentResult.isCorrect)}
                       <div style={{
                         fontSize: '18px',
                         fontWeight: 'bold',
-                        color: judgmentResult.isCorrect ? '#10b981' : '#ef4444',
-                        marginBottom: '8px'
-                      }}>
-                        {judgmentResult.isCorrect ? '✅ 正确！' : '❌ 不正确'}
-                      </div>
-                      <div style={{
-                        fontSize: '14px',
-                        color: 'white',
+                        color: judgmentResult.isCorrect === 2 ? '#10b981' : 
+                               judgmentResult.isCorrect === 1 ? '#fbbf24' : 
+                               '#ef4444',
                         marginBottom: '12px'
                       }}>
-                        {judgmentResult.explanation}
+                        {judgmentResult.isCorrect === 2 ? '✅ 正确！' : 
+                         judgmentResult.isCorrect === 1 ? '👌 还行' : 
+                         '❌ 不正确'}
                       </div>
+                      
+                      {/* 显示ref_solution信息 */}
                       <div style={{
                         fontSize: '12px',
                         color: '#d1d5db',
-                        marginBottom: '12px'
+                        marginBottom: '8px',
+                        lineHeight: '1.4'
                       }}>
-                        {(() => {
-  const ref = judgmentResult?.refSolution ?? {};   // 没有就用空对象
-  const pairs = Object.entries(ref);
-  return (
-    <span>
-      GTO参考解: {pairs.length
-        ? pairs.map(([action, percentage]) => `${action} ${percentage}%`).join(', ')
-        : '（无参考解）'}
-    </span>
-  );
-})()}
+                        <div>
+                          {judgmentResult.refSolution ? Object.entries(judgmentResult.refSolution)
+                            .filter(([action, level]) => level === 1)
+                            .map(([action, level]) => `${action}(${level})`)
+                            .join(' ') || '无高频行动' : '无高频行动'}
+                        </div>
+                        <div>
+                          {judgmentResult.refSolution ? Object.entries(judgmentResult.refSolution)
+                            .filter(([action, level]) => level === 2)
+                            .map(([action, level]) => `${action}(${level})`)
+                            .join(' ') || '无中频行动' : '无中频行动'}
+                        </div>
+                        <div>
+                          {judgmentResult.refSolution ? Object.entries(judgmentResult.refSolution)
+                            .filter(([action, level]) => level === 3)
+                            .map(([action, level]) => `${action}(${level})`)
+                            .join(' ') || '无低频行动' : '无低频行动'}
+                        </div>
                       </div>
+                      
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                         <button
-                          onClick={resetAnswer}
+                          onClick={() => setShowExplanation(true)}
                           style={{
                             padding: '8px 16px',
                             backgroundColor: '#6b7280',
@@ -717,7 +765,7 @@ function QuestionContent() {
                             fontSize: '14px'
                           }}
                         >
-                          重新选择
+                          详细解释
                         </button>
                         <button
                           onClick={() => fetchNextQuestion(questionData.id, questionData.mode)}
@@ -842,58 +890,108 @@ function QuestionContent() {
                   </div>
                 </div>
 
-                {/* 玩家信息列（右侧） */}
+                {/* 玩家信息列（右侧）或详细解释 */}
                 <div style={{ 
                   flex: '1',
                   padding: '20px'
                 }}>
-                  <h3 style={{ 
-                    color: 'white', 
-                    fontSize: '16px', 
-                    marginBottom: '16px',
-                    textAlign: 'center'
-                  }}>
-                    玩家信息
-                  </h3>
-                  
-                  <div style={{ 
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)', 
-                    borderRadius: '8px', 
-                    padding: '12px',
-                    height: 'calc(100% - 50px)',
-                    overflowY: 'auto'
-                  }}>
-                    {positionNames.map((posName, index) => {
-                      const stack = stacks[index];
-                      const actionHistory = formatPlayerActionHistory(posName, parsedActions);
-                      const isCurrentPlayer = posName === position;
-                      
-                      return (
-                        <div key={posName} style={{ 
-                          marginBottom: '12px',
-                          padding: '8px',
-                          backgroundColor: isCurrentPlayer ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                          borderRadius: '4px',
-                          border: isCurrentPlayer ? '1px solid #fbbf24' : 'none'
-                        }}>
-                          <div style={{ 
-                            color: isCurrentPlayer ? '#fbbf24' : 'white',
-                            fontWeight: 'bold',
-                            fontSize: '12px',
-                            marginBottom: '4px'
-                          }}>
-                            {posName}({stack}bb)
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#d1d5db' }}>
-                            <div>Preflop: {actionHistory[0] || '-'}</div>
-                            <div>Flop: {actionHistory[1] || '-'}</div>
-                            <div>Turn: {actionHistory[2] || '-'}</div>
-                            <div>River: {actionHistory[3] || '-'}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {showExplanation ? (
+                    // 详细解释显示
+                    <div style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      borderRadius: '8px',
+                      padding: '20px',
+                      height: 'calc(100% - 40px)',
+                      overflowY: 'auto'
+                    }}>
+                      <h3 style={{
+                        color: 'white',
+                        fontSize: '16px',
+                        marginBottom: '16px',
+                        textAlign: 'center'
+                      }}>
+                        详细解释
+                      </h3>
+                      <div style={{
+                        color: '#d1d5db',
+                        fontSize: '14px',
+                        lineHeight: '1.6',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {judgmentResult?.explanation || '暂无解释'}
+                      </div>
+                      <div style={{
+                        marginTop: '20px',
+                        textAlign: 'center'
+                      }}>
+                        <button
+                          onClick={() => setShowExplanation(false)}
+                          style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#6b7280',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '14px'
+                          }}
+                        >
+                          返回
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // 玩家信息显示
+                    <>
+                      <h3 style={{ 
+                        color: 'white', 
+                        fontSize: '16px', 
+                        marginBottom: '16px',
+                        textAlign: 'center'
+                      }}>
+                        玩家信息
+                      </h3>
+
+                      <div style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        height: 'calc(100% - 50px)',
+                        overflowY: 'auto'
+                      }}>
+                        {positionNames.map((posName, index) => {
+                          const stack = stacks[index];
+                          const actionHistory = formatPlayerActionHistory(posName, parsedActions);
+                          const isCurrentPlayer = posName === position;
+
+                          return (
+                            <div key={posName} style={{
+                              marginBottom: '12px',
+                              padding: '8px',
+                              backgroundColor: isCurrentPlayer ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                              borderRadius: '4px',
+                              border: isCurrentPlayer ? '1px solid #fbbf24' : 'none'
+                            }}>
+                              <div style={{
+                                color: isCurrentPlayer ? '#fbbf24' : 'white',
+                                fontWeight: 'bold',
+                                fontSize: '12px',
+                                marginBottom: '4px'
+                              }}>
+                                {posName}({stack}bb)
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#d1d5db' }}>
+                                <div>Preflop: {actionHistory[0] || '-'}</div>
+                                <div>Flop: {actionHistory[1] || '-'}</div>
+                                <div>Turn: {actionHistory[2] || '-'}</div>
+                                <div>River: {actionHistory[3] || '-'}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

@@ -33,9 +33,9 @@ class JudgeRequest(BaseModel):
     user_action: str
 
 class JudgeResponse(BaseModel):
-    is_correct: bool
-    user_action: str
-    ref_solution: Dict[str, int]
+    isCorrect: int  # 0=不对, 1=半对, 2=全对
+    userAction: str
+    refSolution: Dict[str, int]
     explanation: str
 
 # 加载题目数据
@@ -81,32 +81,56 @@ async def get_question_by_id(question_id: int):
 @app.post("/api/v1/judge", response_model=JudgeResponse)
 async def judge_answer(request: JudgeRequest):
     """判断用户答案是否正确"""
+    print(f"=== 后端收到判断请求 ===")
+    print(f"请求数据: question_id={request.question_id}, user_action={request.user_action}")
+    
     # 查找题目
     question = next((q for q in questions_data if q["id"] == request.question_id), None)
     if not question:
+        print(f"❌ 未找到题目 ID: {request.question_id}")
         raise HTTPException(status_code=404, detail="Question not found")
+    
+    print(f"✅ 找到题目: {question['id']}")
+    print(f"题目ref_solution: {question['ref_solution']}")
     
     ref_solution = question["ref_solution"]
     user_action = request.user_action
     
-    # 判断逻辑
-    is_correct = ref_solution.get(user_action, 0) > 0
+    print(f"用户行动: {user_action}")
+    print(f"在ref_solution中查找: {user_action}")
     
-    # 生成解释
-    if is_correct:
-        percentage = ref_solution[user_action]
-        explanation = f"正确！根据GTO策略，{user_action}在这个位置有{percentage}%的频率。"
+    # 判断逻辑：0=不对, 1=半对, 2=全对
+    frequency_level = ref_solution.get(user_action, 0)
+    print(f"找到的频率等级: {frequency_level}")
+    
+    if frequency_level == 1:
+        is_correct = 2  # 全对（高频）
+        print("判断结果: 全对 (2)")
+    elif frequency_level == 2:
+        is_correct = 1  # 半对（中频）
+        print("判断结果: 半对 (1)")
+    elif frequency_level == 3:
+        is_correct = 0  # 不对（低频）
+        print("判断结果: 不对 (0)")
     else:
-        # 找到最佳行动
-        best_action = max(ref_solution.items(), key=lambda x: x[1])
-        explanation = f"不正确。根据GTO策略，最佳行动是{best_action[0]}（{best_action[1]}%频率）。"
+        is_correct = 0  # 不对（不在参考解中）
+        print("判断结果: 不对 (0) - 不在参考解中")
     
-    return JudgeResponse(
-        is_correct=is_correct,
-        user_action=user_action,
-        ref_solution=ref_solution,
+    # 使用题库中的解释
+    explanation = question.get("explanation", "test")
+    print(f"解释内容: {explanation}")
+    
+    result = JudgeResponse(
+        isCorrect=is_correct,
+        userAction=user_action,
+        refSolution=ref_solution,
         explanation=explanation
     )
+    
+    print(f"返回结果: {result}")
+    print(f"=== 后端判断完成 ===")
+    
+    return result
 
 @app.get("/api/v1/questions/next/{current_id}")
 async def get_next_question(current_id: int, mode: str = "综合练习"):

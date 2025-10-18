@@ -1,0 +1,157 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "mode": "综合练习",
+      "position": "BTN",
+      "stage": "flop",
+      "stacks": [100, 95, 110, 100, 50, 25],
+      "action_history": {
+        "preflop": ["UTG raise 3", "UTG1 fold", "CO call", "BTN call"],
+        "flop": [],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["As", "Kh"],
+      "board": ["Ac", "7h", "2d"],
+      "ref_solution": {"call": 1, "raise13": 2, "raise12": 2, "raise23": 3, "raise11": 3, "fold": 3},
+      "explanation": "test explanation for question 1"
+    },
+    {
+      "id": 2,
+      "mode": "综合练习",
+      "position": "CO",
+      "stage": "turn",
+      "stacks": [100, 95, 100, 110, 50, 25],
+      "action_history": {
+        "preflop": ["UTG raise 3", "UTG1 fold", "CO call", "BTN call"],
+        "flop": ["UTG bet 5", "CO call", "BTN call"],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["Qs", "Qh"],
+      "board": ["Ac", "7h", "2d", "Ks"],
+      "ref_solution": {"call": 2, "raise13": 1, "raise12": 1, "raise23": 2, "raise11": 3, "fold": 3},
+      "explanation": "test explanation for question 2"
+    },
+    {
+      "id": 3,
+      "mode": "综合练习",
+      "position": "UTG",
+      "stage": "preflop",
+      "stacks": [100, 95, 100, 110, 50, 25],
+      "action_history": {
+        "preflop": [],
+        "flop": [],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["As", "Ah"],
+      "board": [],
+      "ref_solution": {"call": 3, "raise13": 2, "raise12": 1, "raise23": 1, "raise11": 1, "fold": 3},
+      "explanation": "test explanation for question 3"
+    },
+    {
+      "id": 4,
+      "mode": "价值练习",
+      "position": "CO",
+      "stage": "flop",
+      "stacks": [100, 95, 100, 110, 50, 25],
+      "action_history": {
+        "preflop": ["UTG raise 3", "UTG1 fold", "CO call"],
+        "flop": [],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["AA", "KK"],
+      "board": ["Ac", "7h", "2d"],
+      "ref_solution": {"call": 2, "raise13": 1, "raise12": 1, "raise23": 1, "raise11": 1, "fold": 3},
+      "explanation": "test explanation for question 4"
+    },
+    {
+      "id": 5,
+      "mode": "价值练习",
+      "position": "BTN",
+      "stage": "turn",
+      "stacks": [100, 95, 110, 100, 50, 25],
+      "action_history": {
+        "preflop": ["UTG raise 3", "UTG1 fold", "CO call", "BTN call"],
+        "flop": ["UTG bet 5", "CO call", "BTN call"],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["As", "Ad"],
+      "board": ["Ac", "7h", "2d", "Ks"],
+      "ref_solution": {"call": 3, "raise13": 2, "raise12": 1, "raise23": 1, "raise11": 1, "fold": 3},
+      "explanation": "test explanation for question 5"
+    },
+    {
+      "id": 6,
+      "mode": "价值练习",
+      "position": "UTG1",
+      "stage": "flop",
+      "stacks": [100, 95, 100, 110, 50, 25],
+      "action_history": {
+        "preflop": ["UTG raise 3", "UTG1 call"],
+        "flop": [],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["Ks", "Kh"],
+      "board": ["Kc", "7h", "2d"],
+      "ref_solution": {"call": 2, "raise13": 1, "raise12": 1, "raise23": 1, "raise11": 1, "fold": 3},
+      "explanation": "test explanation for question 6"
+    },
+    {
+      "id": 7,
+      "mode": "Bluff练习",
+      "position": "BTN",
+      "stage": "turn",
+      "stacks": [100, 95, 110, 100, 50, 25],
+      "action_history": {
+        "preflop": ["UTG raise 3", "UTG1 fold", "CO call", "BTN call"],
+        "flop": ["UTG bet 5", "CO call", "BTN call"],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["72o"],
+      "board": ["Ac", "7h", "2d", "Ks"],
+      "ref_solution": {"call": 3, "raise13": 3, "raise12": 3, "raise23": 3, "raise11": 3, "fold": 1},
+      "explanation": "test explanation for question 7"
+    },
+    {
+      "id": 8,
+      "mode": "Bluff练习",
+      "position": "CO",
+      "stage": "flop",
+      "stacks": [100, 95, 100, 110, 50, 25],
+      "action_history": {
+        "preflop": ["UTG raise 3", "UTG1 fold", "CO call"],
+        "flop": [],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["9s", "8h"],
+      "board": ["Ac", "7h", "2d"],
+      "ref_solution": {"call": 2, "raise13": 3, "raise12": 3, "raise23": 3, "raise11": 3, "fold": 1},
+      "explanation": "test explanation for question 8"
+    },
+    {
+      "id": 9,
+      "mode": "Bluff练习",
+      "position": "BTN",
+      "stage": "river",
+      "stacks": [100, 95, 110, 100, 50, 25],
+      "action_history": {
+        "preflop": ["UTG raise 3", "UTG1 fold", "CO call", "BTN call"],
+        "flop": ["UTG bet 5", "CO call", "BTN call"],
+        "turn": ["UTG bet 10", "CO call", "BTN call"],
+        "river": []
+      },
+      "hole_cards": ["5s", "4h"],
+      "board": ["Ac", "7h", "2d", "Ks", "3c"],
+      "ref_solution": {"call": 3, "raise13": 3, "raise12": 3, "raise23": 3, "raise11": 3, "fold": 1},
+      "explanation": "test explanation for question 9"
+    }
+  ]
+}
