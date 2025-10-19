@@ -1,6 +1,7 @@
 import React from 'react';
 import { QuestionData, POSITION_NAMES } from '../types/question';
 import { parseActionHistory, calculateDealerPosition, getPlayerPosition, getActionText, getActionColor } from '../utils/pokerUtils';
+import PlayingCard from './PlayingCard';
 
 interface PokerTableProps {
   questionData: QuestionData;
@@ -64,13 +65,30 @@ export default function PokerTable({ questionData }: PokerTableProps) {
                 transform: pos.transform
               }}
             >
-              {/* 玩家头像 */}
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 border-white shadow-lg ${
-                isCurrentPlayer ? 'bg-red-500' : 'bg-blue-500'
-              }`}>
-                <span className="text-white text-sm font-bold">
-                  {isCurrentPlayer ? 'YOU' : index + 1}
-                </span>
+              {/* 玩家头像和手牌容器 */}
+              <div className="flex items-center space-x-2">
+                {/* 玩家头像 */}
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 border-white shadow-lg ${
+                  isCurrentPlayer ? 'bg-red-500' : 'bg-blue-500'
+                }`}>
+                  <span className="text-white text-sm font-bold">
+                    {isCurrentPlayer ? 'YOU' : index + 1}
+                  </span>
+                </div>
+                
+                {/* 手牌显示（仅当前玩家） */}
+                {isCurrentPlayer && hole_cards.length > 0 && (
+                  <div className="flex space-x-1">
+                    {hole_cards.map((card, cardIndex) => (
+                      <PlayingCard 
+                        key={cardIndex} 
+                        card={card} 
+                        size="medium"
+                        className="shadow-lg"
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
               
               {/* 玩家信息 */}
@@ -89,17 +107,6 @@ export default function PokerTable({ questionData }: PokerTableProps) {
                   <div className="text-yellow-300">Your Turn</div>
                 )}
               </div>
-              
-              {/* 手牌显示（仅当前玩家） */}
-              {isCurrentPlayer && hole_cards.length > 0 && (
-                <div className="mt-2 flex justify-center space-x-1">
-                  {hole_cards.map((card, cardIndex) => (
-                    <div key={cardIndex} className="w-6 h-8 bg-white rounded border border-gray-400 flex items-center justify-center">
-                      <span className="text-xs font-bold text-black">{card}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           );
         })}
@@ -108,11 +115,17 @@ export default function PokerTable({ questionData }: PokerTableProps) {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
           <div className="flex space-x-2">
             {Array.from({ length: 5 }, (_, index) => (
-              <div key={index} className="w-8 h-12 rounded border-2 border-gray-400 flex items-center justify-center">
+              <div key={index}>
                 {board[index] ? (
-                  <span className="text-xs font-bold text-black">{board[index]}</span>
+                  <PlayingCard 
+                    card={board[index]} 
+                    size="medium"
+                    className="shadow-lg"
+                  />
                 ) : (
-                  <div className="w-6 h-10 bg-blue-600 rounded"></div>
+                  <div className="w-12 h-16 bg-blue-600 rounded-lg border-2 border-gray-400 shadow-lg flex items-center justify-center">
+                    <div className="w-8 h-12 bg-blue-500 rounded border border-blue-400"></div>
+                  </div>
                 )}
               </div>
             ))}
@@ -124,7 +137,6 @@ export default function PokerTable({ questionData }: PokerTableProps) {
           <div className="bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
             <div className="text-center">
               <div className="text-sm">Pot: 15bb</div>
-              <div className="text-xs text-gray-300">Your Stack: {stacks[POSITION_NAMES.indexOf(position as any)]}bb</div>
             </div>
           </div>
         </div>

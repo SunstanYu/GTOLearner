@@ -1,18 +1,34 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import { QuestionData } from '../../types/question';
+import PlayingCard from '../../components/PlayingCard';
 
 function QuestionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState('综合练习');
+  const [mode, setMode] = useState('synthesis');
   const [questionData, setQuestionData] = useState<QuestionData | null>(null);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [raiseSize, setRaiseSize] = useState<string | null>(null);
   const [actionHistoryScrollTop, setActionHistoryScrollTop] = useState(0);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{
+    id: string;
+    type: 'user' | 'ai';
+    content: string;
+    timestamp: Date;
+  }>>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [chatScrollTop, setChatScrollTop] = useState(0);
+  const [showScrollbar, setShowScrollbar] = useState(false);
+  const [scrollbarTimeout, setScrollbarTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [inputRows, setInputRows] = useState(1);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const inputAreaRef = useRef<HTMLDivElement>(null);     // 底部输入框
+  const [chatAreaHeight, setChatAreaHeight] = useState(0); // 动态存储历史区高度
   const [judgmentResult, setJudgmentResult] = useState<{
     isCorrect: number; // 0=不对, 1=半对, 2=全对
     userAction: string;
@@ -20,14 +36,39 @@ function QuestionContent() {
     explanation: string;
   } | null>(null);
 
+  // 模式映射：中文显示名称 -> 英文API参数
+  const modeMapping: Record<string, string> = {
+    '综合练习': 'synthesis',
+    '价值练习': 'value',
+    'Bluff练习': 'bluff'
+  };
+
   useEffect(() => {
     const modeParam = searchParams.get('mode');
     if (modeParam) {
-      setMode(decodeURIComponent(modeParam));
-      // 从后端API获取题目
-      fetchQuestion(decodeURIComponent(modeParam));
+      const decodedMode = decodeURIComponent(modeParam);
+      setMode(decodedMode);
+      // 从后端API获取题目，使用映射后的英文模式
+      const apiMode = modeMapping[decodedMode] || decodedMode;
+      fetchQuestion(apiMode);
     }
   }, [searchParams]);
+
+  // 当显示解释时初始化AI消息
+  useEffect(() => {
+    if (showExplanation) {
+      initializeExplanationMessage();
+    }
+  }, [showExplanation, judgmentResult]);
+
+  useEffect(() => {
+    if (inputAreaRef.current && chatContainerRef.current) {
+      const totalHeight = chatContainerRef.current.clientHeight;
+      const inputHeight = inputAreaRef.current.clientHeight;
+      setChatAreaHeight(totalHeight - inputHeight);
+    }
+  }, []);
+  
 
   // 从后端获取题目
   const fetchQuestion = async (mode: string) => {
@@ -49,7 +90,9 @@ function QuestionContent() {
   // 获取下一题
   const fetchNextQuestion = async (currentId: number, mode: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/questions/next/${currentId}?mode=${encodeURIComponent(mode)}`);
+      // 使用模式映射将中文模式转换为英文API参数
+      const apiMode = modeMapping[mode] || mode;
+      const response = await fetch(`http://localhost:8000/api/v1/questions/next/${currentId}?mode=${encodeURIComponent(apiMode)}`);
       if (response.ok) {
         const data = await response.json();
         setQuestionData(data);
@@ -98,18 +141,18 @@ function QuestionContent() {
   // 获取玩家位置坐标
   const getPlayerPosition = (index: number) => {
     const positions = [
-      // 0 UTG - 顶部中
-      { top: '8%',  left: '50%', transform: 'translate(-50%, -50%)' },
-      // 1 UTG1 - 右上
-      { top: '22%', left: '80%', transform: 'translate(-50%, -50%)' },
+      // 0 UTG - 顶部左
+      { top: '0%',  left: '30%', transform: 'translate(-50%, -50%)' },
+      // 1 UTG1 - 顶侧右
+      { top: '0%', left: '70%', transform: 'translate(-50%, -50%)' },
       // 2 CO - 右侧中
-      { top: '68%', left: '80%', transform: 'translate(-50%, -50%)' },
-      // 3 BTN - 底部中（玩家在边缘而非中间）
-      { top: '88%', left: '50%', transform: 'translate(-50%, -50%)' },
-      // 4 SB - 左侧中
-      { top: '68%', left: '20%', transform: 'translate(-50%, -50%)' },
-      // 5 BB - 左上
-      { top: '22%', left: '20%', transform: 'translate(-50%, -50%)' },
+      { top: '50%', left: '100%', transform: 'translate(-50%, -50%)' },
+      // 3 BTN - 底部右
+      { top: '100%', left: '70%', transform: 'translate(-50%, -50%)' },
+      // 4 SB - 底部左
+      { top: '100%', left: '30%', transform: 'translate(-50%, -50%)' },
+      // 5 BB - 左侧中
+      { top: '50%', left: '0%', transform: 'translate(-50%, -50%)' },
     ];
     return positions[index];
   };
@@ -157,21 +200,138 @@ function QuestionContent() {
     });
   };
 
+  // 获取行动显示位置
+  const getActionDisplayPosition = (posName: string, isDealer: boolean) => {
+    switch (posName) {
+      case 'UTG':
+      case 'UTG1':
+        return {
+          top: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginTop: '8px'
+        };
+      case 'BB':
+        return {
+          top: '50%',
+          left: '100%',
+          transform: 'translateY(-50%)',
+          marginLeft: '8px'
+        };
+      case 'CO':
+        return {
+          top: '50%',
+          right: '100%',
+          transform: 'translateY(-50%)',
+          marginRight: '8px'
+        };
+      case 'SB':
+        return {
+          bottom: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginBottom: '8px'
+        };
+      case 'BTN':
+        return {
+          top: isDealer ? '-40px' : '-20px',
+          right: '-10px',
+          transform: 'translateX(50%)'
+        };
+      default:
+        return {
+          top: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginTop: '8px'
+        };
+    }
+  };
+
+  // 获取当前阶段各玩家的行动
+  const getCurrentStageActions = (parsedActions: any, stage: string) => {
+    const actions = parsedActions[stage] || [];
+    const playerActions: { [key: string]: string } = {};
+    
+    actions.forEach((action: any) => {
+      const actionText = action.action === 'raise' ? `${action.action} ${action.amount}` : action.action;
+      playerActions[action.position] = actionText;
+    });
+    
+    return playerActions;
+  };
+
+  // 格式化牌面信息
+  const formatBoardCards = (board: string[]) => {
+    const suitMap: { [key: string]: string } = {
+      'h': '♥', 'd': '♦', 'c': '♣', 's': '♠'
+    };
+    
+    return board.map(card => {
+      const rank = card.slice(0, -1);
+      const suit = card.slice(-1);
+      const suitSymbol = suitMap[suit];
+      const color = (suit === 'h' || suit === 'd') ? '#ff4444' : '#000000'; // 红色或黑色
+      
+      return (
+        <span key={card} style={{ color }}>
+          {rank}{suitSymbol}
+        </span>
+      );
+    });
+  };
+
   // 获取所有行动历史（按顺序）
-  const getAllActionHistory = (parsedActions: any) => {
+  const getAllActionHistory = (parsedActions: any, board: string[], stage: string, position: string) => {
     const stages = ['preflop', 'flop', 'turn', 'river'];
     const allActions: any[] = [];
     
-    stages.forEach(stage => {
-      const actions = parsedActions[stage] || [];
+    stages.forEach(currentStage => {
+      const actions = parsedActions[currentStage] || [];
+      
+      // 添加该阶段的行动
       actions.forEach((action: any) => {
         allActions.push({
           ...action,
-          stage,
-          displayText: action.action === 'raise' ? `${action.position} ${action.action} ${action.amount}bb` : `${action.position} ${action.action}`
+          stage: currentStage,
+          displayText: action.action === 'raise' ? `${action.position} ${action.action} ${action.amount}` : `${action.position} ${action.action}`,
+          type: 'action'
         });
       });
+      
+      // 在阶段结束后添加公共牌信息
+      if (currentStage === 'preflop' && board.length >= 3) {
+        allActions.push({
+          type: 'board',
+          stage: 'flop',
+          displayText: '',
+          cards: board.slice(0, 3)
+        });
+      } else if (currentStage === 'flop' && board.length >= 4) {
+        allActions.push({
+          type: 'board',
+          stage: 'turn',
+          displayText: '',
+          cards: board.slice(3, 4)
+        });
+      } else if (currentStage === 'turn' && board.length >= 5) {
+        allActions.push({
+          type: 'board',
+          stage: 'river',
+          displayText: '',
+          cards: board.slice(4, 5)
+        });
+      }
     });
+    
+    // 添加当前玩家行动提示
+    if (stage !== 'river' || parsedActions.river?.length === 0) {
+      allActions.push({
+        type: 'current',
+        displayText: `${position} action`,
+        stage: stage
+      });
+    }
     
     return allActions;
   };
@@ -268,6 +428,196 @@ function QuestionContent() {
     setRaiseSize(null);
     setJudgmentResult(null);
     setShowExplanation(false);
+    setChatMessages([]);
+    setInputMessage('');
+    setChatScrollTop(0);
+    setShowScrollbar(false);
+    setInputRows(1);
+  };
+
+  // 格式化行动名称
+  const formatActionName = (action: string) => {
+    switch (action) {
+      case 'call':
+        return 'call';
+      case 'raise13':
+        return 'raise 0.3 pot';
+      case 'raise12':
+        return 'raise 0.5 pot';
+      case 'raise23':
+        return 'raise 0.7 pot';
+      case 'raise11':
+        return 'raise 1 pot';
+      case 'fold':
+        return 'fold';
+      default:
+        return action;
+    }
+  };
+
+  // 获取频率表情和文字
+  const getFrequencyDisplay = (level: number) => {
+    switch (level) {
+      case 1:
+        return { emoji: '✅', text: '高' };
+      case 2:
+        return { emoji: '👌', text: '中' };
+      case 3:
+        return { emoji: '❌', text: '低' };
+      default:
+        return { emoji: '❓', text: '未知' };
+    }
+  };
+
+  // 初始化AI解释消息
+  const initializeExplanationMessage = () => {
+    if (judgmentResult?.explanation && chatMessages.length === 0) {
+      const explanationMessage = {
+        id: 'explanation-0',
+        type: 'ai' as const,
+        content: judgmentResult.explanation,
+        timestamp: new Date()
+      };
+      setChatMessages([explanationMessage]);
+    }
+  };
+
+  // 发送聊天消息
+  const sendChatMessage = () => {
+    if (!inputMessage.trim()) return;
+    
+    const newMessage = {
+      id: Date.now().toString(),
+      type: 'user' as const,
+      content: inputMessage.trim(),
+      timestamp: new Date()
+    };
+    
+    setChatMessages(prev => [...prev, newMessage]);
+    setInputMessage('');
+    
+    // 立即复原输入框大小
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = '20px';
+      setInputRows(1);
+    }
+    
+    // 模拟AI回复（暂时不实现真实API）
+    setTimeout(() => {
+      const aiMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai' as const,
+        content: '这是一个模拟的AI回复。实际应用中这里会调用ChatGPT API。',
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, aiMessage]);
+    }, 1000);
+  };
+
+  // 处理回车键发送
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  };
+
+  // 处理输入框内容变化，自适应高度
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInputMessage(value);
+  
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const scrollHeight = textarea.scrollHeight;
+      const lineHeight = 20;
+      const maxHeight = lineHeight * 5;
+      const newHeight = Math.min(Math.max(20, scrollHeight), maxHeight);
+      textarea.style.height = `${newHeight}px`;
+      setInputRows(Math.ceil(newHeight / lineHeight));
+    }
+  
+    // ✅ 重新计算聊天历史区的可用高度
+    if (inputAreaRef.current && chatContainerRef.current) {
+      const totalHeight = chatContainerRef.current.clientHeight;
+      const inputHeight = inputAreaRef.current.clientHeight;
+      setChatAreaHeight(totalHeight - inputHeight);
+    }
+  };
+  
+
+  // 滚动聊天记录
+  const scrollChat = (direction: 'up' | 'down') => {
+    const scrollAmount = 50;
+    const newScrollTop = direction === 'up'
+      ? Math.max(0, chatScrollTop - scrollAmount)
+      : chatScrollTop + scrollAmount;
+    setChatScrollTop(newScrollTop);
+    showScrollbarTemporarily();
+  };
+
+  // 显示滚动条
+  const showScrollbarTemporarily = () => {
+    setShowScrollbar(true);
+    if (scrollbarTimeout) {
+      clearTimeout(scrollbarTimeout);
+    }
+    const timeout = setTimeout(() => {
+      setShowScrollbar(false);
+    }, 2000);
+    setScrollbarTimeout(timeout);
+  };
+
+  // 处理鼠标滚轮
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const container = chatContainerRef.current;
+    if (!container) return;
+  
+    const chatContainerHeight = container.clientHeight;
+    const totalContentHeight = container.scrollHeight;
+    const maxScrollTop = Math.max(0, totalContentHeight - chatContainerHeight);
+  
+    const scrollAmount = e.deltaY > 0 ? 30 : -30;
+    const newScrollTop = Math.max(0, Math.min(maxScrollTop, chatScrollTop + scrollAmount));
+    setChatScrollTop(newScrollTop);
+    showScrollbarTemporarily();
+  };
+  
+
+  // 计算滚动条高度和位置
+  const getScrollbarStyle = () => {
+    const container = chatContainerRef.current;
+    if (!container) return { display: 'none' };
+  
+    const chatContainerHeight = container.clientHeight;  // 可见高度
+    const totalContentHeight = container.scrollHeight;   // 实际内容高度
+  
+    if (totalContentHeight <= chatContainerHeight) {
+      return { display: 'none' };
+    }
+  
+    const maxScrollTop = totalContentHeight - chatContainerHeight;
+    const scrollbarHeight =
+      (chatContainerHeight / totalContentHeight) * chatContainerHeight;
+    const scrollbarTop =
+      (chatScrollTop / maxScrollTop) *
+      (chatContainerHeight - scrollbarHeight);
+  
+    return {
+      position: 'absolute' as const,
+      right: '4px',
+      top: `${scrollbarTop}px`,
+      width: '6px',
+      height: `${scrollbarHeight}px`,
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+      borderRadius: '3px',
+      opacity: showScrollbar ? 1 : 0,
+      transition: 'opacity 0.3s ease',
+      zIndex: 10
+    };
   };
 
   return (
@@ -278,7 +628,8 @@ function QuestionContent() {
           const parsedActions = parseActionHistory(action_history);
           const dealerPosition = calculateDealerPosition();
           const positionNames = ['UTG', 'UTG1', 'CO', 'BTN', 'SB', 'BB'];
-          const allActions = getAllActionHistory(parsedActions);
+          const allActions = getAllActionHistory(parsedActions, board, stage, position);
+          const currentStageActions = getCurrentStageActions(parsedActions, stage);
 
           return (
             <div style={{ 
@@ -344,12 +695,12 @@ function QuestionContent() {
                     width: '80%', 
                     height: '80%' 
                   }}>
-                    {/* 椭圆形牌桌 */}
+                    {/* 香肠形状牌桌 */}
                     <div style={{ 
                       position: 'absolute', 
                       inset: 0, 
                       backgroundColor: '#166534', 
-                      borderRadius: '50%', 
+                      borderRadius: '9999px', 
                       border: '8px solid #ca8a04', 
                       boxShadow: '0 25px 50px rgba(0,0,0,0.3)' 
                     }}></div>
@@ -360,7 +711,7 @@ function QuestionContent() {
                       const stack = stacks[index];
                       const pos = getPlayerPosition(index);
                       const isDealer = index === dealerPosition;
-                      const avatarSize = isCurrentPlayer ? 64 : 48;
+                      const avatarSize = isCurrentPlayer ? 80 : 64;
 
                       return (
                         <div
@@ -373,8 +724,8 @@ function QuestionContent() {
                             zIndex: 5
                           }}
                         >
-                          {/* 外层包一层，用于相对定位 D 徽标 */}
-                          <div style={{ position: 'relative', display: 'inline-block' }}>
+                          {/* 玩家头像和手牌容器 */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
                             {/* 玩家头像 */}
                             <div
                               style={{
@@ -386,81 +737,79 @@ function QuestionContent() {
                                 justifyContent: 'center',
                                 border: isCurrentPlayer ? '4px solid #fbbf24' : '2px solid white',
                                 boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-                                backgroundColor: isCurrentPlayer ? '#ef4444' : '#3b82f6'
+                                backgroundColor: isCurrentPlayer ? '#ef4444' : '#3b82f6',
+                                position: 'relative'
                               }}
                             >
-                              <span
-                                style={{
-                                  color: 'white',
-                                  fontSize: isCurrentPlayer ? '14px' : '12px',
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                {isCurrentPlayer ? 'YOU' : index + 1}
-                              </span>
-                            </div>
-                    
-                            {/* Dealer 徽标：头像右侧 8px，垂直居中 */}
-                            {isDealer && (
                               <div
                                 style={{
-                                  position: 'absolute',
-                                  top: '50%',
-                                  left: '100%',
-                                  transform: 'translate(8px, -50%)',
-                                  width: '24px',
-                                  height: '24px',
-                                  backgroundColor: 'white',
-                                  border: '2px solid #9ca3af',
-                                  borderRadius: '50%',
                                   display: 'flex',
+                                  flexDirection: 'column',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  boxShadow: '0 2px 4px rgba(0,0,0,0.25)'
+                                  color: 'white',
+                                  fontSize: isCurrentPlayer ? '16px' : '13px',
+                                  fontWeight: 'bold',
+                                  lineHeight: '1.1'
                                 }}
-                                title="Dealer"
                               >
-                                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>D</span>
+                                <div>{posName}</div>
+                                <div style={{ fontSize: isCurrentPlayer ? '16px' : '13px', marginTop: '5px'  }}>{stack}</div>
+                              </div>
+                              
+                              {/* Dealer 徽标：头像上方居中 */}
+                              {isDealer && (
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    top: '-30px',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    width: '24px',
+                                    height: '24px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #9ca3af',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.25)'
+                                  }}
+                                  title="Dealer"
+                                >
+                                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>D</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* 手牌显示（仅当前玩家） */}
+                            {isCurrentPlayer && hole_cards.length > 0 && (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                {hole_cards.map((card, cardIndex) => (
+                                  <PlayingCard 
+                                    key={cardIndex} 
+                                    card={card} 
+                                    size="medium"
+                                    className="shadow-lg"
+                                  />
+                                ))}
                               </div>
                             )}
                           </div>
-                    
-                          {/* 玩家信息 */}
-                          <div
-                            style={{
-                              marginTop: '8px',
-                              textAlign: 'center',
-                              color: 'white',
-                              fontSize: '12px'
-                            }}
-                          >
-                            <div style={{ fontWeight: 'bold' }}>{posName}</div>
-                            <div style={{ color: '#fbbf24' }}>{stack}bb</div>
-                            {isCurrentPlayer && (
-                              <div style={{ color: '#fbbf24' }}>Your Turn</div>
-                            )}
-                          </div>
-                    
-                          {/* 手牌（仅当前玩家） */}
-                          {isCurrentPlayer && hole_cards.length > 0 && (
-                            <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                              {hole_cards.map((card, cardIndex) => (
-                                <div
-                                  key={cardIndex}
-                                  style={{
-                                    width: '24px',
-                                    height: '32px',
-                                    backgroundColor: 'white',
-                                    borderRadius: '4px',
-                                    border: '1px solid #9ca3af',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                  }}
-                                >
-                                  <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'black' }}>{card}</span>
-                                </div>
-                              ))}
+                          
+                          {/* 当前阶段行动显示 */}
+                          {currentStageActions[posName] && (
+                            <div style={{
+                              position: 'absolute',
+                              color: '#fbbf24',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              whiteSpace: 'nowrap',
+                              zIndex: 10,
+                              textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
+                              ...getActionDisplayPosition(posName, isDealer)
+                            }}>
+                              {currentStageActions[posName]}
                             </div>
                           )}
                         </div>
@@ -477,29 +826,33 @@ function QuestionContent() {
                     }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         {Array.from({ length: 5 }, (_, index) => (
-                          <div key={index} style={{ 
-                            width: '32px', 
-                            height: '48px', 
-                            borderRadius: '4px', 
-                            border: '2px solid #9ca3af',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: board[index] ? 'white' : 'transparent'
-                          }}>
+                          <div key={index}>
                             {board[index] ? (
-                              <span style={{ 
-                                fontSize: '10px', 
-                                fontWeight: 'bold', 
-                                color: 'black' 
-                              }}>{board[index]}</span>
+                              <PlayingCard 
+                                card={board[index]} 
+                                size="medium"
+                                className="shadow-lg"
+                              />
                             ) : (
                               <div style={{ 
-                                width: '24px', 
-                                height: '40px', 
-                                backgroundColor: '#2563eb', 
-                                borderRadius: '2px' 
-                              }}></div>
+                                width: '48px', 
+                                height: '64px', 
+                                borderRadius: '8px', 
+                                border: '2px solid #9ca3af',
+                                backgroundColor: '#2563eb',
+                                boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <div style={{ 
+                                  width: '32px', 
+                                  height: '48px', 
+                                  backgroundColor: '#1d4ed8', 
+                                  borderRadius: '4px',
+                                  border: '1px solid #1e40af'
+                                }}></div>
+                              </div>
                             )}
                           </div>
                         ))}
@@ -521,10 +874,8 @@ function QuestionContent() {
                         borderRadius: '8px' 
                       }}>
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '14px' }}>Pot: 15bb</div>
-                          <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                            Your Stack: {stacks[positionNames.indexOf(position)]}bb
-                          </div>
+                          <div style={{ fontSize: '14px' }}>Pot: {questionData.pot}</div>
+                          
                         </div>
                       </div>
                     </div>
@@ -541,60 +892,62 @@ function QuestionContent() {
                   backgroundColor: 'rgba(0, 0, 0, 0.2)',
                   padding: '20px'
                 }}>
-                  {/* 主要行动按钮 */}
-                  <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                    <button
-                      onClick={() => setSelectedAction('call')}
-                      style={{
-                        padding: '12px 24px',
-                        backgroundColor: selectedAction === 'call' ? '#60a5fa' : '#374151',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        minWidth: '80px'
-                      }}
-                    >
-                      Call
-                    </button>
-                    <button
-                      onClick={() => setSelectedAction('raise')}
-                      style={{
-                        padding: '12px 24px',
-                        backgroundColor: selectedAction === 'raise' ? '#fbbf24' : '#374151',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        minWidth: '80px'
-                      }}
-                    >
-                      Raise
-                    </button>
-                    <button
-                      onClick={() => setSelectedAction('fold')}
-                      style={{
-                        padding: '12px 24px',
-                        backgroundColor: selectedAction === 'fold' ? '#f87171' : '#374151',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        minWidth: '80px'
-                      }}
-                    >
-                      Fold
-                    </button>
-                  </div>
+                  {/* 主要行动按钮 - 只在没有结果显示时显示 */}
+                  {!judgmentResult && (
+                    <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+                      <button
+                        onClick={() => setSelectedAction('call')}
+                        style={{
+                          padding: '12px 24px',
+                          backgroundColor: selectedAction === 'call' ? '#60a5fa' : '#374151',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          minWidth: '80px'
+                        }}
+                      >
+                        Call
+                      </button>
+                      <button
+                        onClick={() => setSelectedAction('raise')}
+                        style={{
+                          padding: '12px 24px',
+                          backgroundColor: selectedAction === 'raise' ? '#fbbf24' : '#374151',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          minWidth: '80px'
+                        }}
+                      >
+                        Raise
+                      </button>
+                      <button
+                        onClick={() => setSelectedAction('fold')}
+                        style={{
+                          padding: '12px 24px',
+                          backgroundColor: selectedAction === 'fold' ? '#f87171' : '#374151',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          minWidth: '80px'
+                        }}
+                      >
+                        Fold
+                      </button>
+                    </div>
+                  )}
 
-                  {/* Raise尺寸选择 */}
-                  {selectedAction === 'raise' && (
+                  {/* Raise尺寸选择 - 只在没有结果显示时显示 */}
+                  {selectedAction === 'raise' && !judgmentResult && (
                       <div
                       style={{
                         display: 'flex',
@@ -711,7 +1064,6 @@ function QuestionContent() {
                       borderRadius: '8px',
                       textAlign: 'center'
                     }}>
-                      {console.log('🎨 渲染结果时isCorrect的值:', judgmentResult.isCorrect, typeof judgmentResult.isCorrect)}
                       <div style={{
                         fontSize: '18px',
                         fontWeight: 'bold',
@@ -725,31 +1077,57 @@ function QuestionContent() {
                          '❌ 不正确'}
                       </div>
                       
-                      {/* 显示ref_solution信息 */}
+                      {/* 显示ref_solution信息 - 横向排列的小方框 */}
                       <div style={{
-                        fontSize: '12px',
-                        color: '#d1d5db',
-                        marginBottom: '8px',
-                        lineHeight: '1.4'
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                        justifyContent: 'center',
+                        marginBottom: '16px'
                       }}>
-                        <div>
-                          {judgmentResult.refSolution ? Object.entries(judgmentResult.refSolution)
-                            .filter(([action, level]) => level === 1)
-                            .map(([action, level]) => `${action}(${level})`)
-                            .join(' ') || '无高频行动' : '无高频行动'}
-                        </div>
-                        <div>
-                          {judgmentResult.refSolution ? Object.entries(judgmentResult.refSolution)
-                            .filter(([action, level]) => level === 2)
-                            .map(([action, level]) => `${action}(${level})`)
-                            .join(' ') || '无中频行动' : '无中频行动'}
-                        </div>
-                        <div>
-                          {judgmentResult.refSolution ? Object.entries(judgmentResult.refSolution)
-                            .filter(([action, level]) => level === 3)
-                            .map(([action, level]) => `${action}(${level})`)
-                            .join(' ') || '无低频行动' : '无低频行动'}
-                        </div>
+                        {judgmentResult.refSolution ? Object.entries(judgmentResult.refSolution)
+                          .sort(([,a], [,b]) => (a as number) - (b as number)) // 按频率从高到低排序
+                          .map(([action, level]) => {
+                            const frequency = getFrequencyDisplay(level as number);
+                            const actionName = formatActionName(action);
+                            const isUserAction = (() => {
+                              if (selectedAction === 'raise' && raiseSize) {
+                                const userAction = `raise${raiseSize.replace('/', '')}`;
+                                return userAction === action;
+                              }
+                              return selectedAction === action;
+                            })();
+                            
+                            return (
+                              <div
+                                key={action}
+                                style={{
+                                  padding: '6px 12px',
+                                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                  border: isUserAction ? '2px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.3)',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  color: 'white',
+                                  textAlign: 'center',
+                                  minWidth: '80px'
+                                }}
+                              >
+                                <div style={{ fontSize: '14px', marginBottom: '2px' }}>
+                                  {frequency.emoji}
+                                </div>
+                                <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                                  {actionName}
+                                </div>
+                                <div style={{ fontSize: '10px', opacity: 0.8 }}>
+                                  {frequency.text}
+                                </div>
+                              </div>
+                            );
+                          }) : (
+                            <div style={{ color: '#d1d5db', fontSize: '12px' }}>
+                              无参考解
+                            </div>
+                          )}
                       </div>
                       
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
@@ -845,19 +1223,30 @@ function QuestionContent() {
                         <div key={index} style={{ 
                           marginBottom: '6px',
                           padding: '6px 4px',
-                          backgroundColor: getActionBlockColor(action),
+                          backgroundColor: action.type === 'board' ? 'rgba(255, 255, 255, 0.15)' : 
+                                          action.type === 'current' ? '#fbbf24' : 
+                                          getActionBlockColor(action),
                           borderRadius: '4px',
                           fontSize: '10px',
                           fontWeight: 'bold',
-                          color: action.action === 'fold' ? 'rgba(255, 255, 255, 0.7)' : 'white',
+                          color: action.type === 'board' ? '#ff4444' : 
+                                 action.type === 'current' ? '#000000' :
+                                 action.action === 'fold' ? 'rgba(255, 255, 255, 0.7)' : 'white',
                           textAlign: 'center',
                           minHeight: '24px',
                           display: 'flex',
+                          flexDirection: 'column',
                           alignItems: 'center',
                           justifyContent: 'center',
                           lineHeight: '1.2'
                         }}>
-                          {action.displayText}
+                          {action.type === 'board' ? (
+                            <div style={{ display: 'flex', gap: '2px' }}>
+                              {formatBoardCards(action.cards)}
+                            </div>
+                          ) : (
+                            action.displayText
+                          )}
                         </div>
                       ))}
                     </div>
@@ -890,59 +1279,191 @@ function QuestionContent() {
                   </div>
                 </div>
 
-                {/* 玩家信息列（右侧）或详细解释 */}
+                {/* 玩家信息列（右侧）或Copilot风格解释区域 */}
                 <div style={{ 
                   flex: '1',
-                  padding: '20px'
+                  height: '100vh',
+                  display: 'flex',
+                  flexDirection: 'column'
                 }}>
                   {showExplanation ? (
-                    // 详细解释显示
+                    // Copilot风格的聊天区域
                     <div style={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                      borderRadius: '8px',
-                      padding: '20px',
-                      height: 'calc(100% - 40px)',
-                      overflowY: 'auto'
+                      height: '100%',
+                      backgroundColor: '#f8fafc',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      position: 'relative'
                     }}>
-                      <h3 style={{
-                        color: 'white',
-                        fontSize: '16px',
-                        marginBottom: '16px',
-                        textAlign: 'center'
-                      }}>
-                        详细解释
-                      </h3>
+                      {/* 顶部关闭按钮 */}
                       <div style={{
-                        color: '#d1d5db',
-                        fontSize: '14px',
-                        lineHeight: '1.6',
-                        whiteSpace: 'pre-wrap'
-                      }}>
-                        {judgmentResult?.explanation || '暂无解释'}
-                      </div>
-                      <div style={{
-                        marginTop: '20px',
-                        textAlign: 'center'
+                        position: 'absolute',
+                        top: '16px',
+                        right: '16px',
+                        zIndex: 10
                       }}>
                         <button
                           onClick={() => setShowExplanation(false)}
                           style={{
-                            padding: '8px 16px',
-                            backgroundColor: '#6b7280',
-                            color: 'white',
+                            width: '32px',
+                            height: '32px',
+                            backgroundColor: 'transparent',
                             border: 'none',
-                            borderRadius: '6px',
+                            borderRadius: '50%',
                             cursor: 'pointer',
-                            fontSize: '14px'
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '18px',
+                            color: '#64748b',
+                            transition: 'background-color 0.2s'
                           }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          返回
+                          ×
                         </button>
                       </div>
+
+                      {/* 聊天区域容器 */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          height: '100%', // 一定要保证这一层高度为100%
+                          backgroundColor: '#f8fafc',
+                        }}
+                      >
+                        {/* 对话历史 */}
+                        <div
+                          ref={chatContainerRef}
+                          style={{
+                            flexGrow: 1,          // ✅ 占据剩余空间
+                            overflow: 'hidden',   // ✅ 内部滚动逻辑依旧可控
+                            position: 'relative',
+                            padding: '16px',
+                            paddingTop: '60px',
+                          }}
+                          onWheel={handleWheel}
+                        >
+                          <div
+                            style={{
+                              transform: `translateY(-${chatScrollTop}px)`,
+                              transition: 'transform 0.2s ease'
+                            }}
+                          >
+                            {chatMessages.map((message, index) => (
+                              <div key={message.id} style={{
+                                marginBottom: '20px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: message.type === 'user' ? 'flex-end' : 'flex-start'
+                              }}>
+                                {message.type === 'user' ? (
+                                  // 用户消息：带气泡
+                                  <div style={{
+                                    maxWidth: '85%',
+                                    padding: '12px 16px',
+                                    borderRadius: '18px',
+                                    backgroundColor: '#0078d4',
+                                    color: '#ffffff',
+                                    fontSize: '14px',
+                                    lineHeight: '1.4',
+                                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                                    wordWrap: 'break-word',
+                                    wordBreak: 'break-word'
+                                  }}>
+                                    {message.content}
+                                  </div>
+                                ) : (
+                                  // AI消息：无气泡，直接文本
+                                  <div style={{
+                                    maxWidth: '100%',
+                                    fontSize: '14px',
+                                    lineHeight: '1.6',
+                                    color: '#334155',
+                                    whiteSpace: 'pre-wrap',
+                                    wordWrap: 'break-word',
+                                    wordBreak: 'break-word'
+                                  }}>
+                                    {message.content}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <div style={getScrollbarStyle()} />
+                        </div>
+
+                        {/* 输入区域 */}
+                        <div
+                          ref={inputAreaRef}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            borderTop: '1px solid #e2e8f0',
+                            padding: '16px',
+                          }}
+                        >
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'flex-end',
+                          gap: '8px',
+                          backgroundColor: '#f8fafc',
+                          borderRadius: '24px',
+                          padding: '8px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          <textarea
+                            ref={textareaRef}
+                            value={inputMessage}
+                            onChange={handleInputChange}
+                            onKeyPress={handleKeyPress}
+                            placeholder="询问关于这道题的任何问题..."
+                            style={{
+                              flex: '1',
+                              border: 'none',
+                              outline: 'none',
+                              backgroundColor: 'transparent',
+                              resize: 'none',
+                              fontSize: '14px',
+                              lineHeight: '20px',
+                              color: '#334155',
+                              fontFamily: 'inherit',
+                              minHeight: '20px',
+                              maxHeight: '100px',
+                              overflow: inputRows >= 5 ? 'auto' : 'hidden',
+                              padding: '0',
+                              margin: '0',
+                              width: '100%'
+                            }}
+                          />
+                          <button
+                            onClick={sendChatMessage}
+                            disabled={!inputMessage.trim()}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              backgroundColor: inputMessage.trim() ? '#0078d4' : '#e2e8f0',
+                              border: 'none',
+                              borderRadius: '50%',
+                              cursor: inputMessage.trim() ? 'pointer' : 'not-allowed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '16px',
+                              color: inputMessage.trim() ? '#ffffff' : '#94a3b8',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            ➤
+                          </button>
+                        </div>
+                      </div>
+                     </div>
                     </div>
                   ) : (
                     // 玩家信息显示
-                    <>
+                    <div style={{ padding: '20px', height: '100%' }}>
                       <h3 style={{ 
                         color: 'white', 
                         fontSize: '16px', 
@@ -990,7 +1511,7 @@ function QuestionContent() {
                           );
                         })}
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>

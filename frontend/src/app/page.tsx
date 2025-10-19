@@ -17,19 +17,19 @@ export default function Home() {
         <h1 className="text-3xl font-bold text-center mb-8">GTO Learner</h1>
         <div className="space-y-4">
           <button 
-            onClick={() => handleModeClick('综合练习')}
+            onClick={() => handleModeClick('synthesis')}
             className="w-full bg-blue-500 text-white py-3 px-6 rounded hover:bg-blue-600 transition-colors"
           >
             综合练习
           </button>
           <button 
-            onClick={() => handleModeClick('价值练习')}
+            onClick={() => handleModeClick('value')}
             className="w-full bg-green-500 text-white py-3 px-6 rounded hover:bg-green-600 transition-colors"
           >
             价值练习
           </button>
           <button 
-            onClick={() => handleModeClick('Bluff练习')}
+            onClick={() => handleModeClick('bluff')}
             className="w-full bg-red-500 text-white py-3 px-6 rounded hover:bg-red-600 transition-colors"
           >
             Bluff练习

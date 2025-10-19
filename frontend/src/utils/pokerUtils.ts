@@ -1,8 +1,16 @@
 import { QuestionData, ActionInfo, POSITION_MAP, POSITION_NAMES } from '../types/question';
 
 // 解析行动历史
-export function parseActionHistory(actionHistory: string[]): ActionInfo[] {
-  return actionHistory.map(actionStr => {
+export function parseActionHistory(actionHistory: { preflop: string[]; flop: string[]; turn: string[]; river: string[] }): ActionInfo[] {
+  const allActions: string[] = [];
+  
+  // 合并所有阶段的行动
+  allActions.push(...actionHistory.preflop);
+  allActions.push(...actionHistory.flop);
+  allActions.push(...actionHistory.turn);
+  allActions.push(...actionHistory.river);
+  
+  return allActions.map(actionStr => {
     const parts = actionStr.split(' ');
     const position = parts[0];
     const action = parts[1] as 'call' | 'raise' | 'fold';
@@ -26,12 +34,12 @@ export function calculateDealerPosition(playerPosition: string): number {
 // 获取玩家在牌桌上的位置坐标
 export function getPlayerPosition(index: number): { top: string; left: string; transform: string } {
   const positions = [
-    { top: '8', left: '50%', transform: '-50%' }, // UTG - 顶部
-    { top: '16', left: '75%', transform: '-50%' }, // UTG1 - 右上
-    { top: '16', left: '25%', transform: '-50%' }, // CO - 左上
-    { top: '50%', left: '50%', transform: '-50%' }, // BTN - 底部（玩家）
-    { top: '75%', left: '25%', transform: '-50%' }, // SB - 左下
-    { top: '75%', left: '75%', transform: '-50%' }, // BB - 右下
+    { top: '15%', left: '50%', transform: '-50%' }, // UTG - 顶部中央
+    { top: '35%', left: '50%', transform: '-50%' }, // UTG1 - 中上
+    { top: '65%', left: '50%', transform: '-50%' }, // CO - 中下
+    { top: '85%', left: '50%', transform: '-50%' }, // BTN - 底部中央（玩家）
+    { top: '50%', left: '15%', transform: '-50%' }, // SB - 左侧中央
+    { top: '50%', left: '85%', transform: '-50%' }, // BB - 右侧中央
   ];
   
   return positions[index];

@@ -14,6 +14,7 @@ export interface QuestionData {
   hole_cards: string[]; // 我的手牌
   board: string[]; // 公共牌
   ref_solution: Record<string, number>; // 参考解决方案
+  pot: number; // 底池大小
 }
 
 // 玩家位置映射
