@@ -15,6 +15,7 @@ export interface QuestionData {
   board: string[]; // 公共牌
   ref_solution: Record<string, number>; // 参考解决方案
   pot: number; // 底池大小
+  hero_cards?: Record<string, string[]>; // 其他玩家在当前玩家行动时的已知手牌，格式：{"UTG1": ["Ad", "Kd"], "BB": ["7c", "6c"]}
 }
 
 // 玩家位置映射

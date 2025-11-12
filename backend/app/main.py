@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from .database import get_db, Question, init_database
 from .question_manager import QuestionManager
+from .services.deepseek_generator import DeepSeekQuestionGenerator
 
 app = FastAPI(title="GTO Learner API", version="0.1.0")
 
@@ -31,6 +32,7 @@ class QuestionData(BaseModel):
     board: List[str]
     ref_solution: Dict[str, int]
     pot: int
+    hero_cards: Optional[Dict[str, List[str]]] = None
 
 class JudgeRequest(BaseModel):
     question_id: int
@@ -41,6 +43,15 @@ class JudgeResponse(BaseModel):
     userAction: str
     refSolution: Dict[str, int]
     explanation: str
+
+class ChatRequest(BaseModel):
+    question_id: int
+    message: str
+
+class ChatResponse(BaseModel):
+    response: str
+    success: bool
+    error: Optional[str] = None
 
 # 初始化数据库
 init_database()
@@ -76,7 +87,8 @@ async def get_question(mode: str = "synthesis", db: Session = Depends(get_db)):
         "board": question.board,
         "ref_solution": question.ref_solution,
         "explanation": question.explanation,
-        "pot": question.pot
+        "pot": question.pot,
+        "hero_cards": question.hero_cards
     }
     
     print(f"选择的题目ID: {question.id}")
@@ -103,7 +115,9 @@ async def get_question_by_id(question_id: int, db: Session = Depends(get_db)):
         "hole_cards": question.hole_cards,
         "board": question.board,
         "ref_solution": question.ref_solution,
-        "explanation": question.explanation
+        "explanation": question.explanation,
+        "pot": question.pot,
+        "hero_cards": question.hero_cards
     }
 
 @app.post("/api/v1/judge", response_model=JudgeResponse)
@@ -251,11 +265,81 @@ async def get_next_question(current_id: int, mode: str = "synthesis", db: Sessio
         "board": question.board,
         "ref_solution": question.ref_solution,
         "explanation": question.explanation,
-        "pot": question.pot
+        "pot": question.pot,
+        "hero_cards": question.hero_cards
     }
     
     print(f"=== 获取下一题结束 ===")
     return question_dict
+
+@app.post("/api/v1/chat", response_model=ChatResponse)
+async def chat_with_ai(request: ChatRequest, db: Session = Depends(get_db)):
+    """与AI进行对话"""
+    print(f"=== AI对话请求开始 ===")
+    print(f"题目ID: {request.question_id}")
+    print(f"用户消息: {request.message}")
+    
+    try:
+        # 获取题目信息
+        manager = QuestionManager(db)
+        question = manager.get_question_by_id(request.question_id)
+        
+        if not question:
+            print(f"❌ 未找到题目 ID: {request.question_id}")
+            return ChatResponse(
+                response="抱歉，找不到对应的题目信息。",
+                success=False,
+                error="题目未找到"
+            )
+        
+        print(f"✅ 找到题目: {question.id}")
+        
+        # 构建题目数据
+        question_data = {
+            "id": question.id,
+            "mode": question.mode,
+            "stage": question.stage,
+            "position": question.position,
+            "stacks": question.stacks,
+            "action_history": question.action_history,
+            "hole_cards": question.hole_cards,
+            "board": question.board,
+            "ref_solution": question.ref_solution,
+            "pot": question.pot
+        }
+        
+        # 初始化DeepSeek生成器
+        try:
+            deepseek_generator = DeepSeekQuestionGenerator()
+        except Exception as e:
+            print(f"❌ DeepSeek初始化失败: {str(e)}")
+            return ChatResponse(
+                response="抱歉，AI服务暂时不可用，请检查DeepSeek API配置。",
+                success=False,
+                error=f"DeepSeek初始化失败: {str(e)}"
+            )
+        
+        # 生成AI回复
+        ai_response = deepseek_generator.generate_chat_response(question_data, request.message)
+        
+        print(f"✅ AI回复生成成功")
+        print(f"回复内容: {ai_response[:100]}...")
+        
+        return ChatResponse(
+            response=ai_response,
+            success=True
+        )
+        
+    except Exception as e:
+        print(f"❌ AI对话处理失败: {str(e)}")
+        return ChatResponse(
+            response="抱歉，处理您的请求时出现了错误。",
+            success=False,
+            error=str(e)
+        )
+    
+    finally:
+        print(f"=== AI对话请求结束 ===")
 
 @app.get("/api/v1/modes")
 async def get_modes():

@@ -1,3 +1,228 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-poker-dark text-white font-display;
+    cursor: default;
+    overflow-x: hidden;
+  }
+
+  /* 自定义光标样式 */
+  body * {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 2L2 12l3 3 7-7 7 7 3-3L12 2z'/%3E%3C/svg%3E") 12 12, auto;
+  }
+
+  button, a {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M12 2L2 12l3 3 7-7 7 7 3-3L12 2z'/%3E%3C/svg%3E") 10 10, pointer;
+  }
+}
+
+@layer utilities {
+  /* 毛玻璃效果 */
+  .glass {
+    background: rgba(15, 23, 41, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-strong {
+    background: rgba(15, 23, 41, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* 渐变文字 */
+  .text-gradient-green {
+    background: linear-gradient(135deg, #00ff88 0%, #00e5ff 50%, #ffd700 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-cyan {
+    background: linear-gradient(135deg, #00e5ff 0%, #00ff88 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #ffd700 0%, #ff8c42 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-red {
+    background: linear-gradient(135deg, #ff3366 0%, #9d4edd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* 辉光效果 */
+  .glow-green {
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.5),
+                 0 0 40px rgba(0, 255, 136, 0.3),
+                 0 0 60px rgba(0, 255, 136, 0.2);
+  }
+
+  .glow-cyan {
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.5),
+                 0 0 40px rgba(0, 229, 255, 0.3);
+  }
+
+  .glow-gold {
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.5),
+                 0 0 40px rgba(255, 215, 0, 0.3);
+  }
+
+  .glow-red {
+    text-shadow: 0 0 20px rgba(255, 51, 102, 0.5),
+                 0 0 40px rgba(255, 51, 102, 0.3);
+  }
+
+  /* 背景网格 */
+  .bg-grid {
+    background-image: 
+      linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 136, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* 按钮点击波纹效果 */
+  .ripple {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ripple::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .ripple:active::after {
+    width: 300px;
+    height: 300px;
+  }
+}
+
+/* 背景动画层 */
+@keyframes backgroundShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.background-animated {
+  background: linear-gradient(-45deg, #0a0e1a, #0f1729, #0a0e1a, #0f1729);
+  background-size: 400% 400%;
+  animation: backgroundShift 15s ease infinite;
+}
+
+/* 六边形网格旋转 */
+@keyframes hexRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.hex-grid {
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 49px,
+      rgba(0, 255, 136, 0.05) 49px,
+      rgba(0, 255, 136, 0.05) 50px
+    ),
+    repeating-linear-gradient(
+      60deg,
+      transparent,
+      transparent 49px,
+      rgba(0, 255, 136, 0.05) 49px,
+      rgba(0, 255, 136, 0.05) 50px
+    ),
+    repeating-linear-gradient(
+      120deg,
+      transparent,
+      transparent 49px,
+      rgba(0, 255, 136, 0.05) 49px,
+      rgba(0, 255, 136, 0.05) 50px
+    );
+  animation: hexRotate 20s linear infinite;
+  opacity: 0.3;
+}
+
+/* 呼吸光效 */
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+.breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+/* 卡片翻转效果 */
+@keyframes cardFlip {
+  0% {
+    transform: perspective(1000px) rotateY(0deg);
+  }
+  50% {
+    transform: perspective(1000px) rotateY(90deg);
+  }
+  100% {
+    transform: perspective(1000px) rotateY(0deg);
+  }
+}
+
+.card-flip {
+  animation: cardFlip 0.6s ease-in-out;
+}
+
+/* 模糊转场 */
+@keyframes blurTransition {
+  0% {
+    filter: blur(0px);
+    opacity: 1;
+  }
+  50% {
+    filter: blur(10px);
+    opacity: 0.5;
+  }
+  100% {
+    filter: blur(0px);
+    opacity: 1;
+  }
+}
+
+.blur-transition {
+  animation: blurTransition 0.8s ease-in-out;
+}

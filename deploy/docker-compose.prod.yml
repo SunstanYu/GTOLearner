@@ -1,0 +1,83 @@
+services:
+  # 前端服务（生产环境）
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - gtolearner-network
+
+  # 后端服务（生产环境）
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-gtolearner}
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    networks:
+      - gtolearner-network
+
+  # 数据库
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-gtolearner}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - gtolearner-network
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - gtolearner-network
+
+  # Nginx反向代理（用于生产环境）
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - gtolearner-network
+
+volumes:
+  postgres_data:
+
+networks:
+  gtolearner-network:
+    driver: bridge
+

@@ -1,0 +1,157 @@
+{
+  "export_info": {
+    "export_time": "2025-10-19T05:32:05.429840",
+    "total_count": 3,
+    "mode_filter": null,
+    "version": "1.0"
+  },
+  "questions": [
+    {
+      "id": 1,
+      "mode": "综合练习",
+      "stage": "preflop",
+      "position": "BTN",
+      "stacks": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "action_history": {
+        "preflop": [
+          "UTG raise 3bb",
+          "UTG1 fold",
+          "CO fold"
+        ],
+        "flop": [],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": [
+        "As",
+        "Kh"
+      ],
+      "board": [],
+      "ref_solution": {
+        "call": 1,
+        "raise13": 2,
+        "raise12": 2,
+        "raise23": 3,
+        "raise11": 3,
+        "fold": 3
+      },
+      "explanation": "在BTN位置面对UTG的3bb开池，AKs是强牌。应该以跟注为主，偶尔加注混合策略。",
+      "created_at": "2025-10-19T05:31:21.045699",
+      "source": "json_upload",
+      "version": "1.0",
+      "difficulty": "medium"
+    },
+    {
+      "id": 2,
+      "mode": "价值练习",
+      "stage": "flop",
+      "position": "BB",
+      "stacks": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "action_history": {
+        "preflop": [
+          "BTN raise 3bb",
+          "SB fold",
+          "BB call"
+        ],
+        "flop": [
+          "BB check",
+          "BTN bet 5bb"
+        ],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": [
+        "Ac",
+        "Kd"
+      ],
+      "board": [
+        "As",
+        "7h",
+        "2d"
+      ],
+      "ref_solution": {
+        "call": 1,
+        "raise13": 2,
+        "raise12": 2,
+        "raise23": 3,
+        "raise11": 3,
+        "fold": 3
+      },
+      "explanation": "在BB位置击中顶对顶踢脚，面对BTN的持续下注，应该以跟注为主，偶尔加注获取价值。",
+      "created_at": "2025-10-19T05:31:21.045704",
+      "source": "json_upload",
+      "version": "1.0",
+      "difficulty": "medium"
+    },
+    {
+      "id": 3,
+      "mode": "bluff练习",
+      "stage": "turn",
+      "position": "CO",
+      "stacks": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "action_history": {
+        "preflop": [
+          "CO raise 3bb",
+          "BTN call",
+          "SB fold",
+          "BB call"
+        ],
+        "flop": [
+          "BB check",
+          "CO bet 5bb",
+          "BTN call",
+          "BB fold"
+        ],
+        "turn": [
+          "CO bet 12bb",
+          "BTN call"
+        ],
+        "river": []
+      },
+      "hole_cards": [
+        "9s",
+        "8s"
+      ],
+      "board": [
+        "Ac",
+        "7h",
+        "2d",
+        "6c"
+      ],
+      "ref_solution": {
+        "call": 3,
+        "raise13": 3,
+        "raise12": 3,
+        "raise23": 3,
+        "raise11": 3,
+        "fold": 1
+      },
+      "explanation": "在turn上击中顺子听牌，面对BTN的跟注，应该继续下注进行半诈唬。",
+      "created_at": "2025-10-19T05:31:21.045706",
+      "source": "json_upload",
+      "version": "1.0",
+      "difficulty": "medium"
+    }
+  ]
+}

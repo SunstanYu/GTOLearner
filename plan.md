@@ -163,3 +163,15 @@ class LLMService:
 ## 运行
 启动：docker-compose up
 终止：docker-compose down
+
+# 1. 启动服务
+docker-compose up --build
+
+# 2. 初始化数据库
+docker-compose exec backend python update_questions.py init
+
+# 3. 测试ChatGPT
+docker-compose exec backend python update_questions.py test
+
+# 4. 生成题目
+docker-compose exec backend python update_questions.py generate --mode 综合练习 --count 20

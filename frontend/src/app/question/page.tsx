@@ -4,10 +4,33 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { QuestionData } from '../../types/question';
 import PlayingCard from '../../components/PlayingCard';
+import CardBack from '../../components/CardBack';
 
 function QuestionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // 添加CSS动画样式
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes typing {
+        0%, 60%, 100% {
+          transform: translateY(0);
+          opacity: 0.4;
+        }
+        30% {
+          transform: translateY(-10px);
+          opacity: 1;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   const [mode, setMode] = useState('synthesis');
   const [questionData, setQuestionData] = useState<QuestionData | null>(null);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
@@ -35,6 +58,7 @@ function QuestionContent() {
     refSolution: Record<string, number>;
     explanation: string;
   } | null>(null);
+  const [isAiTyping, setIsAiTyping] = useState(false);
 
   // 模式映射：中文显示名称 -> 英文API参数
   const modeMapping: Record<string, string> = {
@@ -435,18 +459,62 @@ function QuestionContent() {
     setInputRows(1);
   };
 
+  // 计算raise金额
+  const calculateRaiseAmount = (raiseSize: string, pot: number): number => {
+    switch (raiseSize) {
+      case '1/3':
+        return Math.round(pot * 0.3);
+      case '1/2':
+        return Math.round(pot * 0.5);
+      case '2/3':
+        return Math.round(pot * 0.7);
+      case '1':
+        return pot;
+      default:
+        return 0;
+    }
+  };
+
+  // 根据action类型和pot大小计算raise金额
+  const getRaiseAmountByAction = (action: string, pot: number): number | null => {
+    switch (action) {
+      case 'raise13':
+        return Math.round(pot * 0.3);
+      case 'raise12':
+        return Math.round(pot * 0.5);
+      case 'raise23':
+        return Math.round(pot * 0.7);
+      case 'raise11':
+        return pot;
+      default:
+        return null;
+    }
+  };
+
   // 格式化行动名称
-  const formatActionName = (action: string) => {
+  const formatActionName = (action: string, pot?: number) => {
     switch (action) {
       case 'call':
         return 'call';
       case 'raise13':
+        if (pot !== undefined) {
+          return `raise ${Math.round(pot * 0.3)}`;
+        }
         return 'raise 0.3 pot';
       case 'raise12':
+        if (pot !== undefined) {
+          return `raise ${Math.round(pot * 0.5)}`;
+        }
         return 'raise 0.5 pot';
       case 'raise23':
+        if (pot !== undefined) {
+          return `raise ${Math.round(pot * 0.7)}`;
+        }
         return 'raise 0.7 pot';
       case 'raise11':
+        if (pot !== undefined) {
+          return `raise ${pot}`;
+        }
         return 'raise 1 pot';
       case 'fold':
         return 'fold';
@@ -483,17 +551,17 @@ function QuestionContent() {
   };
 
   // 发送聊天消息
-  const sendChatMessage = () => {
-    if (!inputMessage.trim()) return;
+  const sendChatMessage = async () => {
+    if (!inputMessage.trim() || !questionData) return;
     
-    const newMessage = {
+    const userMessage = {
       id: Date.now().toString(),
       type: 'user' as const,
       content: inputMessage.trim(),
       timestamp: new Date()
     };
     
-    setChatMessages(prev => [...prev, newMessage]);
+    setChatMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     
     // 立即复原输入框大小
@@ -503,16 +571,60 @@ function QuestionContent() {
       setInputRows(1);
     }
     
-    // 模拟AI回复（暂时不实现真实API）
-    setTimeout(() => {
-      const aiMessage = {
+    // 调用AI API
+    setIsAiTyping(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question_id: questionData.id,
+          message: userMessage.content
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          const aiMessage = {
+            id: (Date.now() + 1).toString(),
+            type: 'ai' as const,
+            content: data.response,
+            timestamp: new Date()
+          };
+          
+          setChatMessages(prev => [...prev, aiMessage]);
+        } else {
+          // 处理错误
+          const errorMessage = {
+            id: (Date.now() + 1).toString(),
+            type: 'ai' as const,
+            content: data.response || '抱歉，AI服务暂时不可用。',
+            timestamp: new Date()
+          };
+          
+          setChatMessages(prev => [...prev, errorMessage]);
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.error('AI对话请求失败:', error);
+      
+      const errorMessage = {
         id: (Date.now() + 1).toString(),
         type: 'ai' as const,
-        content: '这是一个模拟的AI回复。实际应用中这里会调用ChatGPT API。',
+        content: '抱歉，网络连接出现问题，请稍后重试。',
         timestamp: new Date()
       };
-      setChatMessages(prev => [...prev, aiMessage]);
-    }, 1000);
+      
+      setChatMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsAiTyping(false);
+    }
   };
 
   // 处理回车键发送
@@ -624,7 +736,7 @@ function QuestionContent() {
     <>
       {questionData ? (
         (() => {
-          const { position, stacks, action_history, hole_cards, board, ref_solution, stage } = questionData;
+          const { position, stacks, action_history, hole_cards, board, ref_solution, stage, hero_cards } = questionData;
           const parsedActions = parseActionHistory(action_history);
           const dealerPosition = calculateDealerPosition();
           const positionNames = ['UTG', 'UTG1', 'CO', 'BTN', 'SB', 'BB'];
@@ -712,6 +824,8 @@ function QuestionContent() {
                       const pos = getPlayerPosition(index);
                       const isDealer = index === dealerPosition;
                       const avatarSize = isCurrentPlayer ? 80 : 64;
+                      const playerHeroCards = hero_cards?.[posName] || null;
+                      const showCards = judgmentResult !== null; // 有判断结果后显示牌面
 
                       return (
                         <div
@@ -792,6 +906,73 @@ function QuestionContent() {
                                     size="medium"
                                     className="shadow-lg"
                                   />
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Hero Cards显示（其他玩家） */}
+                            {!isCurrentPlayer && playerHeroCards && playerHeroCards.length > 0 && (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                {playerHeroCards.map((card, cardIndex) => (
+                                  <div 
+                                    key={cardIndex} 
+                                    style={{ 
+                                      position: 'relative',
+                                      perspective: '1000px',
+                                      width: '48px',  // 明确设置宽度（medium尺寸）
+                                      height: '64px',  // 明确设置高度（medium尺寸）
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        transform: showCards ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                                        transition: 'transform 0.6s ease-in-out',
+                                        transformStyle: 'preserve-3d',
+                                        position: 'relative',
+                                        width: '100%',
+                                        height: '100%',
+                                      }}
+                                    >
+                                      {/* 牌背 - 初始正面，翻转后背面 */}
+                                      <div
+                                        style={{
+                                          position: 'absolute',
+                                          top: 0,
+                                          left: 0,
+                                          width: '100%',
+                                          height: '100%',
+                                          backfaceVisibility: 'hidden',
+                                          WebkitBackfaceVisibility: 'hidden',
+                                          transform: 'rotateY(0deg)',
+                                        }}
+                                      >
+                                        <CardBack 
+                                          size="medium"
+                                          className="shadow-lg"
+                                        />
+                                      </div>
+                                      
+                                      {/* 牌面 - 初始背面，翻转后正面 */}
+                                      <div
+                                        style={{
+                                          position: 'absolute',
+                                          top: 0,
+                                          left: 0,
+                                          width: '100%',
+                                          height: '100%',
+                                          backfaceVisibility: 'hidden',
+                                          WebkitBackfaceVisibility: 'hidden',
+                                          transform: 'rotateY(180deg)',
+                                        }}
+                                      >
+                                        <PlayingCard 
+                                          card={card} 
+                                          size="medium"
+                                          className="shadow-lg"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
                                 ))}
                               </div>
                             )}
@@ -979,7 +1160,7 @@ function QuestionContent() {
                             minWidth: '100px'
                           }}
                         >
-                          1/3 pot
+                          raise {questionData ? calculateRaiseAmount('1/3', questionData.pot) : '...'}
                         </button>
                         <button
                           onClick={() => setRaiseSize('1/2')}
@@ -994,7 +1175,7 @@ function QuestionContent() {
                             minWidth: '100px'
                           }}
                         >
-                          1/2 pot
+                          raise {questionData ? calculateRaiseAmount('1/2', questionData.pot) : '...'}
                         </button>
                         <button
                           onClick={() => setRaiseSize('2/3')}
@@ -1009,7 +1190,7 @@ function QuestionContent() {
                             minWidth: '100px'
                           }}
                         >
-                          2/3 pot
+                          raise {questionData ? calculateRaiseAmount('2/3', questionData.pot) : '...'}
                         </button>
                         <button
                           onClick={() => setRaiseSize('1')}
@@ -1024,7 +1205,7 @@ function QuestionContent() {
                             minWidth: '100px'
                           }}
                         >
-                          1 pot
+                          raise {questionData ? calculateRaiseAmount('1', questionData.pot) : '...'}
                         </button>
                       </div>
                     </div>
@@ -1046,7 +1227,7 @@ function QuestionContent() {
                         marginTop: '16px'
                       }}
                     >
-                      提交 {selectedAction} {raiseSize && `(${raiseSize} pot)`}
+                      提交 {selectedAction} {raiseSize && questionData && `(${calculateRaiseAmount(raiseSize, questionData.pot)})`}
                     </button>
                   )}
 
@@ -1089,7 +1270,7 @@ function QuestionContent() {
                           .sort(([,a], [,b]) => (a as number) - (b as number)) // 按频率从高到低排序
                           .map(([action, level]) => {
                             const frequency = getFrequencyDisplay(level as number);
-                            const actionName = formatActionName(action);
+                            const actionName = formatActionName(action, questionData?.pot);
                             const isUserAction = (() => {
                               if (selectedAction === 'raise' && raiseSize) {
                                 const userAction = `raise${raiseSize.replace('/', '')}`;
@@ -1391,6 +1572,58 @@ function QuestionContent() {
                                 )}
                               </div>
                             ))}
+                            
+                            {/* AI正在输入状态 */}
+                            {isAiTyping && (
+                              <div style={{
+                                marginBottom: '20px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-start'
+                              }}>
+                                <div style={{
+                                  maxWidth: '85%',
+                                  backgroundColor: '#f1f5f9',
+                                  color: '#64748b',
+                                  padding: '12px 16px',
+                                  borderRadius: '18px 18px 18px 4px',
+                                  fontSize: '14px',
+                                  lineHeight: '1.4',
+                                  border: '1px solid #e2e8f0',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px'
+                                }}>
+                                  <div style={{
+                                    display: 'flex',
+                                    gap: '4px'
+                                  }}>
+                                    <div style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      backgroundColor: '#64748b',
+                                      borderRadius: '50%',
+                                      animation: 'typing 1.4s infinite ease-in-out'
+                                    }}></div>
+                                    <div style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      backgroundColor: '#64748b',
+                                      borderRadius: '50%',
+                                      animation: 'typing 1.4s infinite ease-in-out 0.2s'
+                                    }}></div>
+                                    <div style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      backgroundColor: '#64748b',
+                                      borderRadius: '50%',
+                                      animation: 'typing 1.4s infinite ease-in-out 0.4s'
+                                    }}></div>
+                                  </div>
+                                  <span>AI正在思考...</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <div style={getScrollbarStyle()} />
                         </div>
@@ -1439,23 +1672,23 @@ function QuestionContent() {
                           />
                           <button
                             onClick={sendChatMessage}
-                            disabled={!inputMessage.trim()}
+                            disabled={!inputMessage.trim() || isAiTyping}
                             style={{
                               width: '32px',
                               height: '32px',
-                              backgroundColor: inputMessage.trim() ? '#0078d4' : '#e2e8f0',
+                              backgroundColor: (inputMessage.trim() && !isAiTyping) ? '#0078d4' : '#e2e8f0',
                               border: 'none',
                               borderRadius: '50%',
-                              cursor: inputMessage.trim() ? 'pointer' : 'not-allowed',
+                              cursor: (inputMessage.trim() && !isAiTyping) ? 'pointer' : 'not-allowed',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               fontSize: '16px',
-                              color: inputMessage.trim() ? '#ffffff' : '#94a3b8',
+                              color: (inputMessage.trim() && !isAiTyping) ? '#ffffff' : '#94a3b8',
                               transition: 'all 0.2s'
                             }}
                           >
-                            ➤
+                            {isAiTyping ? '⏳' : '➤'}
                           </button>
                         </div>
                       </div>

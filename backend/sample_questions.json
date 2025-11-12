@@ -1,0 +1,173 @@
+{
+  "questions": [
+    {
+      "id": 6,
+      "mode": "synthesis",
+      "stage": "flop",
+      "position": "CO",
+      "stacks": [910, 940, 970, 880, 700, 860],
+      "pot": 27,
+      "action_history": {
+        "preflop": [
+          "UTG fold",
+          "UTG1 raise 6",
+          "CO call",
+          "BTN fold",
+          "SB fold",
+          "BB call"
+        ],
+        "flop": [
+          "BB check",
+          "UTG1 raise 8"
+        ],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["Qh", "Qs"],
+      "hero_cards": {
+        "UTG1": ["As", "Kh"],
+        "BB": ["7d", "6d"]
+      },
+      "board": ["8d", "6c", "2s"],
+      "ref_solution": {"call": 1, "raise13": 1, "raise12": 2, "raise23": 3, "raise11": 3, "fold": 3},
+      "explanation": "UTG1以AK持续进攻，BB以顺听冷跟。CO持QQ领先范围多数牌，应选择跟注保持强中区间平衡。若过早加注将暴露牌力并降低EV。"
+    },
+    {
+      "id": 7,
+      "mode": "synthesis",
+      "stage": "turn",
+      "position": "BTN",
+      "stacks": [940, 900, 910, 960, 660, 870],
+      "pot": 52,
+      "action_history": {
+        "preflop": [
+          "UTG raise 6",
+          "UTG1 fold",
+          "CO fold",
+          "BTN call",
+          "SB fold",
+          "BB call"
+        ],
+        "flop": [
+          "BB check",
+          "UTG raise 10",
+          "BTN call",
+          "BB fold"
+        ],
+        "turn": [
+          "UTG raise 22"
+        ],
+        "river": []
+      },
+      "hole_cards": ["Ad", "Jd"],
+      "hero_cards": {
+        "UTG": ["As", "Kc"]
+      },
+      "board": ["Ah", "9s", "4d", "7c"],
+      "ref_solution": {"call": 1, "raise13": 2, "raise12": 1, "raise23": 2, "raise11": 3, "fold": 3},
+      "explanation": "UTG继续进攻代表顶对或强听牌。BTN以AJ在牌力上略落后，应偏向跟注，利用位置优势控制底池，同时避免与更强A直接对抗。"
+    },
+    {
+      "id": 8,
+      "mode": "synthesis",
+      "stage": "river",
+      "position": "UTG1",
+      "stacks": [890, 870, 900, 830, 880, 940],
+      "pot": 88,
+      "action_history": {
+        "preflop": [
+          "UTG raise 6",
+          "UTG1 call",
+          "CO fold",
+          "BTN fold",
+          "SB call",
+          "BB fold"
+        ],
+        "flop": [
+          "SB check",
+          "UTG raise 10",
+          "UTG1 call",
+          "SB fold"
+        ],
+        "turn": [
+          "UTG raise 20",
+          "UTG1 call"
+        ],
+        "river": [
+          "UTG check"
+        ]
+      },
+      "hole_cards": ["Td", "Tc"],
+      "hero_cards": {
+        "UTG": ["Ah", "9h"]
+      },
+      "board": ["8s", "5d", "2h", "9c", "2c"],
+      "ref_solution": {"call": 3, "raise13": 1, "raise12": 2, "raise23": 2, "raise11": 3, "fold": 3},
+      "explanation": "UTG过牌暗示中强A。UTG1的TT在该牌面仍有明显摊牌价值，选择小额加注可榨取对方A高的跟注，平衡价值与风险，整体EV较优。"
+    },
+    {
+      "id": 9,
+      "mode": "synthesis",
+      "stage": "flop",
+      "position": "BTN",
+      "stacks": [960, 940, 910, 970, 630, 860],
+      "pot": 25,
+      "action_history": {
+        "preflop": [
+          "UTG fold",
+          "UTG1 raise 6",
+          "CO call",
+          "BTN call",
+          "SB fold",
+          "BB fold"
+        ],
+        "flop": [
+          "UTG1 check",
+          "CO check"
+        ],
+        "turn": [],
+        "river": []
+      },
+      "hole_cards": ["9h", "8h"],
+      "hero_cards": {
+        "UTG1": ["Ac", "Kd"],
+        "CO": ["7s", "7d"]
+      },
+      "board": ["Jh", "7s", "2c"],
+      "ref_solution": {"call": 1, "raise13": 1, "raise12": 2, "raise23": 2, "raise11": 3, "fold": 3},
+      "explanation": "UTG1和CO都选择过牌，代表未命中或中等强度牌。BTN的两端顺听兼后门同花是理想半诈唬牌，应主动加注，利用范围优势积累底池EV。"
+    },
+    {
+      "id": 10,
+      "mode": "synthesis",
+      "stage": "turn",
+      "position": "UTG",
+      "stacks": [900, 940, 910, 950, 960, 930],
+      "pot": 61,
+      "action_history": {
+        "preflop": [
+          "UTG raise 6",
+          "UTG1 call",
+          "CO fold",
+          "BTN fold",
+          "SB call",
+          "BB fold"
+        ],
+        "flop": [
+          "SB check",
+          "UTG raise 10",
+          "UTG1 call",
+          "SB fold"
+        ],
+        "turn": []
+      },
+      "hole_cards": ["Ac", "Kh"],
+      "hero_cards": {
+        "UTG1": ["8h", "8s"]
+      },
+      "board": ["As", "8d", "4h", "3c"],
+      "ref_solution": {"call": 3, "raise13": 1, "raise12": 1, "raise23": 2, "raise11": 2, "fold": 3},
+      "explanation": "UTG1以暗三保持跟注。UTG顶对顶踢在此转牌仍具显著领先，应以约2/3底池加注持续取值，迫使中弱对子弃牌并防止被听牌反超。"
+    }
+  ]
+}
