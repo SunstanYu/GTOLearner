@@ -14,7 +14,7 @@ app = FastAPI(title="GTO Learner API", version="0.1.0")
 # 添加CORS中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # 允许所有来源（开发和生产环境）
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -6,6 +6,9 @@ import { QuestionData } from '../../types/question';
 import PlayingCard from '../../components/PlayingCard';
 import CardBack from '../../components/CardBack';
 
+// API基础URL（使用环境变量，如果没有则使用localhost）
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 function QuestionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,7 +101,7 @@ function QuestionContent() {
   const fetchQuestion = async (mode: string) => {
     try {
       // 发起HTTP GET请求
-      const response = await fetch(`http://localhost:8000/api/v1/questions?mode=${encodeURIComponent(mode)}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/questions?mode=${encodeURIComponent(mode)}`);
       // 检查响应状态
       if (response.ok) {
         const data = await response.json();
@@ -116,7 +119,7 @@ function QuestionContent() {
     try {
       // 使用模式映射将中文模式转换为英文API参数
       const apiMode = modeMapping[mode] || mode;
-      const response = await fetch(`http://localhost:8000/api/v1/questions/next/${currentId}?mode=${encodeURIComponent(apiMode)}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/questions/next/${currentId}?mode=${encodeURIComponent(apiMode)}`);
       if (response.ok) {
         const data = await response.json();
         setQuestionData(data);
@@ -414,7 +417,7 @@ function QuestionContent() {
       
       console.log('📤 发送到后端的数据:', requestData);
       
-      const response = await fetch('http://localhost:8000/api/v1/judge', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/judge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -574,7 +577,7 @@ function QuestionContent() {
     // 调用AI API
     setIsAiTyping(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/chat', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
